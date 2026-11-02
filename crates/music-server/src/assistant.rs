@@ -701,6 +701,10 @@ pub fn chat_body_constrained(
         // list reasoning; sending it to those is asking for something they
         // never offered.
         body["reasoning"] = serde_json::json!({ "effort": effort, "exclude": true });
+        // vLLM/GLM engines read the TOP-LEVEL `reasoning_effort` field, not the
+        // nested `reasoning.effort` above (that shape is OpenRouter's). Sending
+        // both keeps every provider honest without turning thinking off globally.
+        body["reasoning_effort"] = serde_json::json!(effort);
     }
     if let Some(schema) = schema {
         // llama-server reads the schema from `json_schema.schema`, the OpenAI
