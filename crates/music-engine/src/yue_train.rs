@@ -592,8 +592,24 @@ pub fn checkpoints(run: &Path) -> Vec<TrainingCheckpoint> {
     let mut found: Vec<TrainingCheckpoint> = checkpoint_dirs(run)
         .into_iter()
         .filter_map(|(step, dir)| {
-            let files: Vec<PathBuf> = ["native-ar.safetensors", "native-nar.safetensors"].iter().map(|name| dir.join(name)).collect();
-            files.iter().all(|file| file.is_file()).then_some(TrainingCheckpoint { step, files })
+            let native: Vec<PathBuf> = ["native-ar.safetensors", "native-nar.safetensors"].iter().map(|name| dir.join(name)).collect();
+            if native.iter().all(|file| file.is_file()) {
+                return Some(TrainingCheckpoint { step, files: native });
+            }
+            // The trainer can write the joint adapters as
+            // given_yue2_joint_ar_<step>.safetensors / ..._nar_<step>.safetensors
+            // instead of the native split; accept those names too.
+            let mut given: Vec<PathBuf> = ["given_yue2_joint_ar_", "given_yue2_joint_nar_"]
+                .iter()
+                .filter_map(|prefix| {
+                    std::fs::read_dir(&dir).ok()?.flatten().map(|entry| entry.path()).find(|path| {
+                        path.file_name().and_then(|name| name.to_str())
+                            .is_some_and(|name| name.starts_with(prefix) && name.ends_with(".safetensors"))
+                    })
+                })
+                .collect();
+            given.sort();
+            (given.len() == 2).then_some(TrainingCheckpoint { step, files: given })
         })
         .collect();
     // a continuation that retrains steps a stopped run had passed writes them again: the newer one counts
