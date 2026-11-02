@@ -2828,9 +2828,13 @@ async fn install_training_pack(State(state): State<AppState>) -> Result<Json<Val
             eprintln!("[ERROR] training pack: {error:#}");
             return;
         }
-        if let Err(error) = background.engine_runtime.install_missing(Some(hardware::CudaBuild::Cuda13)).await {
-            eprintln!("[ERROR] cuBLAS for the trainer: {error:#}");
-            return;
+        // cuBLAS is fetched only on Windows: elsewhere the trainer is linked
+        // against the system's CUDA (libcublas.so) directly.
+        if cfg!(windows) {
+            if let Err(error) = background.engine_runtime.install_missing(Some(hardware::CudaBuild::Cuda13)).await {
+                eprintln!("[ERROR] cuBLAS for the trainer: {error:#}");
+                return;
+            }
         }
         install_separator(&background).await;
     });
