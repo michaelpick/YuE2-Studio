@@ -443,6 +443,17 @@ fn bundled_captioner() -> Option<PathBuf> {
     tool.is_file().then_some(tool)
 }
 
+/// The trainer the macOS app bundle and the Linux packages carry in
+/// `resources/music-train`, built with CUDA from the same HOT-Step; the
+/// downloadable archive is a Windows build.
+fn bundled_trainer() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return None;
+    }
+    let tool = crate::engine_bundle_root().parent()?.join("music-train").join("music-train");
+    tool.is_file().then_some(tool)
+}
+
 /// Describing dataset songs by ear, optional: HOT-Step's `ace-caption` beside
 /// the trainer, MOSS-Music-8B-Instruct (OpenMOSS, Apache-2.0; GGUF by
 /// scragnog) for what it hears and Beat This! (CPJKU, MIT; ONNX by
@@ -588,11 +599,13 @@ impl Training {
         &self.downloader
     }
 
-    /// The trainer: where `YUE_TRAIN_BIN` points in a developer build, else
-    /// the one the pack unpacked.
+    /// The trainer: `YUE_TRAIN_BIN` in a developer build, the one bundled in
+    /// `resources/music-train` on macOS and Linux, else the one the pack
+    /// unpacked.
     pub fn trainer(&self) -> PathBuf {
         std::env::var_os("YUE_TRAIN_BIN")
             .map(PathBuf::from)
+            .or_else(bundled_trainer)
             .unwrap_or_else(|| self.downloader.runtime_dir(trainer_folder()).join(&trainer_source().shipped_as))
     }
 
