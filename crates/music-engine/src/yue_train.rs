@@ -596,20 +596,21 @@ pub fn checkpoints(run: &Path) -> Vec<TrainingCheckpoint> {
             if native.iter().all(|file| file.is_file()) {
                 return Some(TrainingCheckpoint { step, files: native });
             }
-            // The trainer can write the joint adapters as
-            // given_yue2_joint_ar_<step>.safetensors / ..._nar_<step>.safetensors
-            // instead of the native split; accept those names too.
-            let mut given: Vec<PathBuf> = ["given_yue2_joint_ar_", "given_yue2_joint_nar_"]
+            // The trainer writes the joint adapters as
+            // <trigger>_yue2_joint_ar_<step>.safetensors / ..._nar_<step>.safetensors
+            // (the trigger word is the prefix) instead of the native split; accept
+            // any trigger prefix by matching the joint component markers.
+            let mut joint: Vec<PathBuf> = ["_yue2_joint_ar_", "_yue2_joint_nar_"]
                 .iter()
-                .filter_map(|prefix| {
+                .filter_map(|marker| {
                     std::fs::read_dir(&dir).ok()?.flatten().map(|entry| entry.path()).find(|path| {
                         path.file_name().and_then(|name| name.to_str())
-                            .is_some_and(|name| name.starts_with(prefix) && name.ends_with(".safetensors"))
+                            .is_some_and(|name| name.contains(marker) && name.ends_with(".safetensors"))
                     })
                 })
                 .collect();
-            given.sort();
-            (given.len() == 2).then_some(TrainingCheckpoint { step, files: given })
+            joint.sort();
+            (joint.len() == 2).then_some(TrainingCheckpoint { step, files: joint })
         })
         .collect();
     // a continuation that retrains steps a stopped run had passed writes them again: the newer one counts
